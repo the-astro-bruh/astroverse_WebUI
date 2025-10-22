@@ -289,10 +289,14 @@
             
             <div class="flex-grow overflow-y-auto pr-2 -mr-2">
                 <!-- Header -->
-                <div class="text-center mb-8 pt-4 pb-2">
+                <div class="text-center mb-8 pt-4 pb-2 relative"> <!-- Added relative positioning -->
                     <h1 class="text-3xl sm:text-4xl font-extrabold gradient-text neon-glow">🪐</h1>
                     <p class="text-xs text-gray-600 mt-1">ASTRO~VERSE WEB UI | v009</p>
                     <p class="text-sm sm:text-base text-gray-500 mt-1">~ with 💙 by: theAstroBruh 💻 ~</p>
+                    <!-- NEW: Settings Button -->
+                    <button id="settings-btn" class="absolute top-2 right-2 text-2xl p-2 text-gray-400 hover:text-white transition-colors" title="Settings">
+                        ⚙️
+                    </button>
                 </div>
 
                 <!-- Main Mode Switcher -->
@@ -492,6 +496,23 @@
         </div>
     </div>
 
+    <!-- NEW: Settings Modal (for API Key) -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content bg-gray-900 rounded-lg shadow-2xl p-6 w-11/12 max-w-md border border-teal-500">
+            <h3 class="text-xl font-bold text-teal-400 mb-4">API Key Settings</h3>
+            <p class="text-gray-300 mb-4 text-sm">To use this app on GitHub Pages, you need your own Google AI Studio API key.</p>
+            <p class="text-gray-400 mb-4 text-xs">Your key is saved *only* in your browser's local storage and is never shared.</p>
+            
+            <label for="api-key-input" class="text-sm font-medium text-gray-300">Your Google AI API Key:</label>
+            <input type="password" id="api-key-input" class="w-full p-3 mt-2 mb-6 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Enter your API key here...">
+            
+            <div class="flex gap-4">
+                <button id="save-api-key-btn" class="w-full bg-teal-600 text-white py-2 rounded-lg font-semibold hover:bg-teal-700 transition-colors duration-200">Save Key</button>
+                <button id="close-settings-modal-btn" class="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors duration-200">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Magnify Modal (Image Zoom) -->
     <div id="magnify-modal" class="modal flex-col">
         
@@ -559,9 +580,8 @@
 
     <script>
         // --- API Configuration ---
-        const API_KEY = ""; 
-        const IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${API_KEY}`;
-        const TEXT_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+        // REMOVED: const API_KEY = ""; 
+        // We will now get this from localStorage and store it in the state object.
 
         // --- DOM Element References ---
         const DOMElements = {
@@ -584,6 +604,13 @@
             successMessage: document.getElementById('success-message'),
             closeSuccessModalBtn: document.getElementById('close-success-modal-btn'),
             
+            // NEW: Settings Modal
+            settingsBtn: document.getElementById('settings-btn'),
+            settingsModal: document.getElementById('settings-modal'),
+            apiKeyInput: document.getElementById('api-key-input'),
+            saveApiKeyBtn: document.getElementById('save-api-key-btn'),
+            closeSettingsModalBtn: document.getElementById('close-settings-modal-btn'),
+
             // Main Mode UI
             promptModeBtn: document.getElementById('prompt-mode-btn'),
             editModeBtn: document.getElementById('edit-mode-btn'),
@@ -644,6 +671,7 @@
 
         // --- State Variables ---
         let state = {
+            apiKey: null, // NEW: Will be loaded from localStorage
             currentMode: 'prompt', // 'prompt', 'edit', 'png-info'
             currentEditMode: 'perspective', // 'perspective', 'hairstyle', 'background'
             generationCount: 0,
@@ -957,7 +985,13 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
             state.promptAlbum[promptName] = promptText;
             showSuccessModal(`Prompt saved as "${promptName}"!`);
         }
+        
         async function fetchEnchantedPrompt(prompt) {
+            if (!state.apiKey) {
+                showModal("Please set your Google API key in the Settings modal first.");
+                openModal(DOMElements.settingsModal)();
+                return;
+            }
             if (!prompt) {
                 showModal("Please enter a base prompt before trying to enchant it.");
                 return;
@@ -965,6 +999,9 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
             state.lastPrompt = DOMElements.promptBox.value;
             DOMElements.enchantPromptBtn.disabled = true;
             DOMElements.enchantPromptBtn.textContent = '...';
+
+            // NEW: Construct URL with API key from state
+            const TEXT_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.apiKey}`;
 
             const systemPrompt = "You are a world-class prompt engineer for image generation AI. Your task is to take the user's short or basic prompt and expand it into a detailed, creative, and technical prompt that maximizes image quality and realism. Add details about lighting, camera settings (like 35mm, cinematic, volumetric), artistic style, texture, and mood. The response MUST ONLY contain the single, fully enhanced prompt text, nothing else. Preserve the core subject of the original prompt.";
             const payload = {
@@ -1017,6 +1054,24 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
             DOMElements.closeModalBtn.addEventListener('click', closeModal(DOMElements.errorModal));
             DOMElements.closeSuccessModalBtn.addEventListener('click', closeModal(DOMElements.successModal));
             
+            // NEW: Settings Modal Listeners
+            DOMElements.settingsBtn.addEventListener('click', openModal(DOMElements.settingsModal));
+            DOMElements.closeSettingsModalBtn.addEventListener('click', closeModal(DOMElements.settingsModal));
+            DOMElements.saveApiKeyBtn.addEventListener('click', () => {
+                const apiKey = DOMElements.apiKeyInput.value.trim();
+                if (apiKey) {
+                    localStorage.setItem('userApiKey', apiKey);
+                    state.apiKey = apiKey;
+                    closeModal(DOMElements.settingsModal)();
+                    showSuccessModal("API Key saved successfully!");
+                    // Re-enable generate button if it was disabled
+                    DOMElements.generateBtn.disabled = false;
+                    DOMElements.generateBtn.textContent = 'Generate';
+                } else {
+                    showModal("Please enter a valid API key.");
+                }
+            });
+
             // Album
             DOMElements.albumBtn.addEventListener('click', () => { renderPromptAlbum(); openModal(DOMElements.albumModal)(); });
             DOMElements.closeAlbumBtn.addEventListener('click', closeModal(DOMElements.albumModal));
@@ -1284,6 +1339,14 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
                         continue;
                     }
                     if (!response.ok) {
+                        // NEW: Check for 400, which often means an invalid API key
+                        if (response.status === 400) {
+                             const errorData = await response.json();
+                             if (errorData?.error?.message.includes("API key not valid")) {
+                                throw new Error("API key not valid. Please check your key in Settings.");
+                             }
+                             throw new Error(errorData.error.message || `API call failed with status: ${response.status}`);
+                        }
                         const errorData = await response.json();
                         throw new Error(errorData.error.message || `API call failed with status: ${response.status}`);
                     }
@@ -1463,6 +1526,13 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
         }
 
         async function handleGeneration() {
+            // NEW: Check for API key
+            if (!state.apiKey) {
+                showModal("Please set your Google API key in the Settings modal first.");
+                openModal(DOMElements.settingsModal)();
+                return;
+            }
+            
             // Check if cooldown is active
             if (state.isCooldownActive) return; // Prevent generation during cooldown
 
@@ -1540,6 +1610,8 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
             };
 
             try {
+                // NEW: Construct URL with API key from state
+                const IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${state.apiKey}`;
                 const response = await fetchWithRetry(IMAGE_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const result = await response.json();
                 const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
@@ -1559,8 +1631,13 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
                     DOMElements.placeholder.classList.remove('hidden');
                 }
             } catch (error) {
+                console.error("Generation Error:", error);
                 showModal("An error occurred: " + error.message);
                 DOMElements.placeholder.classList.remove('hidden');
+                 // NEW: If API key is bad, open settings
+                if (error.message.includes("API key not valid")) {
+                    openModal(DOMElements.settingsModal)();
+                }
             } finally {
                 // --- End Visual Feedback ---
                 state.isApiCallFinished = true; // Mark API call as finished
@@ -1577,6 +1654,18 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
         
         // --- App Initialization ---
         function init() {
+            // NEW: Load API key from localStorage
+            const savedApiKey = localStorage.getItem('userApiKey');
+            if (savedApiKey) {
+                state.apiKey = savedApiKey;
+                DOMElements.apiKeyInput.value = savedApiKey;
+            } else {
+                // If no key, open settings and disable generate button
+                openModal(DOMElements.settingsModal)();
+                DOMElements.generateBtn.disabled = true;
+                DOMElements.generateBtn.textContent = 'Setup API Key in Settings';
+            }
+
             DOMElements.promptBox.value = defaultPrompt;
             state.lastPrompt = defaultPrompt;
             state.promptAlbum = { /* Default Album Content */
@@ -1603,4 +1692,3 @@ Lighting must be even, soft, and realistic, highlighting skin tones, fabric deta
     </script>
 </body>
 </html>
-
