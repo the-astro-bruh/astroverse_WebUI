@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🪐 | WEB UI (v009)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Background will eventually show through the UI */
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #E2E8F0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            /* Removed overflow: hidden to allow scrolling on small screens */
+        }
+        
+        /* Main UI Container Transparency */
+        .main-container {
+             /* Semi-transparent background */
+            background-color: rgba(17, 24, 39, 0.85); /* Equivalent to bg-gray-900 with opacity */
+            backdrop-filter: blur(10px); /* Add a blur effect */
+            -webkit-backdrop-filter: blur(10px); /* Safari support */
+            border: 1px solid rgba(55, 65, 81, 0.5); /* Semi-transparent border */
+            width: 100%; /* Ensure it takes full width available */
+        }
+        
+        .right-panel-bg {
+            background-color: rgba(31, 41, 55, 0.7); /* Equivalent to bg-gray-800 with opacity */
+        }
+
+
+        /* Custom animation for title */
+        .neon-glow {
+            animation: neon-pulse 1.5s infinite alternate;
+        }
+
+        @keyframes neon-pulse {
+            from {
+                text-shadow: 0 0 3px #00FFFF, 0 0 6px #00FFFF, 0 0 9px rgba(0, 255, 255, 0.3);
+            }
+            to {
+                text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 15px rgba(0, 255, 255, 0.5);
+            }
+        }
+
+        .gradient-text {
+            background-image: linear-gradient(to right, #00FFFF, #00BFFF, #38A169);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .generate-btn {
+            background-image: linear-gradient(to right, #00FFFF, #00BFFF, #38A169);
+            transition: all 0.3s ease;
+            position: relative; /* Needed for cooldown bar positioning */
+            overflow: hidden; /* Keep cooldown bar contained */
+        }
+
+        .generate-btn:hover:not(:disabled) { /* Only apply hover effect when not disabled */
+            opacity: 0.8;
+            transform: scale(1.02);
+        }
+        .generate-btn:disabled {
+             opacity: 0.7; /* Keep it slightly visible but clearly disabled */
+             cursor: not-allowed;
+        }
+
+
+        /* Cooldown Bar Style */
+        #cooldown-bar {
+            position: absolute;
+            inset: 0;
+            background-color: rgba(255, 255, 255, 0.7); /* Slightly transparent white */
+            border-radius: inherit; /* Match button corners if they exist */
+            transform-origin: left; /* Animation starts from left */
+            transform: scaleX(0); /* Initially hidden */
+            pointer-events: none; /* Allow clicks through if needed */
+            transition: transform 0.1s linear; /* Smooth transition for reset */
+        }
+        #cooldown-bar.active {
+            transform: scaleX(1); /* Start full */
+            transition: transform 8s linear; /* 8 second shrink animation */
+        }
+
+
+        /* Loading Animation */
+        .loading-animation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            height: 100%;
+        }
+
+        .loading-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #38A169;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dot:nth-child(3) { animation-delay: 0s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .placeholder-image {
+            background-color: rgba(26, 26, 26, 0.8); /* Semi-transparent placeholder */
+            border: 1px dashed #444; /* Darker dashed border */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #718096;
+            font-size: 1.25rem;
+            text-align: center;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Slightly darker modal background */
+            backdrop-filter: blur(8px); /* Slightly stronger blur */
+            -webkit-backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+             background-color: rgba(17, 24, 39, 0.9); /* More opaque modal content */
+             backdrop-filter: blur(5px);
+             -webkit-backdrop-filter: blur(5px);
+             border: 1px solid rgba(55, 65, 81, 0.6);
+        }
+
+        .download-link {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        /* Magnify Modal specific styles */
+        #magnify-modal {
+            background-color: rgba(0, 0, 0, 0.95);
+            padding: 0;
+            flex-direction: column;
+        }
+        #magnify-content {
+             touch-action: none; /* Critical for preventing default browser gestures */
+        }
+        #magnified-image {
+             /* Removed touch-action from here, moved to parent */
+             transition: transform 0.1s ease-out; /* Smoother transitions for pan/zoom */
+        }
+        
+        /* Album Modal specific styles */
+        .album-prompt-item {
+            cursor: pointer;
+            padding: 12px 16px;
+            border-bottom: 1px solid #2D3748;
+            transition: background-color 0.15s ease;
+        }
+        .album-prompt-item:hover {
+            background-color: #2D3748;
+        }
+        .album-prompt-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Tool Buttons Styling */
+        .tool-button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex: 1; 
+            padding: 0.75rem; 
+            background-color: rgba(31, 41, 55, 0.8); /* Semi-transparent tool buttons */
+            color: #D1D5DB; 
+            border-radius: 0.5rem;
+            font-size: 1.2rem; 
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .tool-button:hover {
+            background-color: rgba(55, 65, 81, 0.9); 
+            transform: translateY(-1px);
+        }
+        .tool-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Styles for Immersive View (Hiding UI) */
+        .ui-control {
+            transition: opacity 0.3s ease;
+        }
+        .ui-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Prompt Box Animation */
+        #prompt-box {
+            transition: height 0.3s ease-in-out;
+        }
+        #prompt-box:focus {
+            height: 16rem; 
+        }
+
+        /* Particle Animation Container */
+        #particle-container {
+            position: fixed;
+            inset: 0;
+            z-index: 50; /* Between UI and Modals */
+            pointer-events: none;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+        #particle-container.active {
+            opacity: 1;
+            transition: opacity 0.3s ease-in;
+        }
+
+        .particle {
+            position: absolute;
+            bottom: -10px; /* Start below screen */
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            opacity: 0;
+            /* Animation applied by JS */
+            will-change: transform, opacity; /* Optimize animation */
+            transition: transform 1.5s linear, opacity 1.5s linear; /* For falling */
+        }
+         /* Rising animation applied directly via JS */
+        @keyframes riseParticles {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 0;
+            }
+            10% { opacity: 0.8; }
+            90% { opacity: 0.8; }
+             50% { transform: translateY(-50vh) scale(1.2); }
+            100% {
+                transform: translateY(-100vh) scale(0.5);
+                opacity: 0;
+            }
+        }
+
+
+        /* Particle Colors */
+        .particle.cyan { background-color: rgba(0, 255, 255, 0.7); box-shadow: 0 0 5px rgba(0, 255, 255, 0.5); }
+        .particle.blue { background-color: rgba(0, 191, 255, 0.7); box-shadow: 0 0 5px rgba(0, 191, 255, 0.5); }
+        .particle.green { background-color: rgba(56, 161, 105, 0.7); box-shadow: 0 0 5px rgba(56, 161, 105, 0.5); }
+
+
+    </style>
+</head>
+<body class="bg-black text-gray-200">
+
+    <!-- Particle Animation Container -->
+    <div id="particle-container"></div>
+
+    <div class="main-container flex flex-col lg:flex-row w-full max-w-7xl mx-auto rounded-xl overflow-hidden shadow-2xl border border-gray-800">
+
+        <!-- Input and Controls Section (Left Panel) -->
+        <div class="w-full lg:w-1/2 p-8 flex flex-col justify-between lg:min-h-[500px]">
+            
+            <div class="flex-grow overflow-y-auto pr-2 -mr-2">
+                <!-- Header -->
+                <div class="text-center mb-8 pt-4 pb-2">
+                    <h1 class="text-3xl sm:text-4xl font-extrabold gradient-text neon-glow">🪐</h1>
+                    <p class="text-xs text-gray-600 mt-1">ASTRO~VERSE WEB UI | v009</p>
+                    <p class="text-sm sm:text-base text-gray-500 mt-1">~ with 💙 by: theAstroBruh 💻 ~</p>
+                </div>
+
+                <!-- Main Mode Switcher -->
+                <div id="mode-switcher" class="flex w-full bg-gray-800/80 rounded-lg p-1 mb-4">
+                    <button id="prompt-mode-btn" class="flex-1 py-2 text-sm font-semibold rounded-md transition-colors">Prompt</button>
+                    <button id="edit-mode-btn" class="flex-1 py-2 text-sm font-semibold rounded-md transition-colors">Edit Mode</button>
+                    <button id="png-info-mode-btn" class="flex-1 py-2 text-sm font-semibold rounded-md transition-colors">PNG Info</button>
+                </div>
+
+                <!-- Prompt Mode Container -->
+                <div id="prompt-mode-container">
+                    <div id="prompt-box-header" class="mb-2 flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-gray-300">Prompt Box</h2>
+                        <div class="flex items-center gap-2">
+                            <button id="history-btn" class="py-1 px-3 text-xs bg-gray-600 text-white rounded-full font-medium transition-colors duration-200 hover:bg-gray-700">History</button>
+                            <button id="album-btn" class="py-1 px-3 text-xs bg-teal-600 text-white rounded-full font-medium transition-colors duration-200 hover:bg-teal-700">Prompt Album</button>
+                        </div>
+                    </div>
+                    <textarea id="prompt-box" rows="3" class="w-full p-4 mb-3 bg-gray-800/80 border border-gray-700/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" placeholder="Click to start writing your prompt..."></textarea>
+                    <div id="tool-buttons-container" class="flex justify-between items-center mb-6 gap-2">
+                        <button id="restore-last-btn" class="tool-button" title="Restore to last state">🔄</button>
+                        <button id="enchant-prompt-btn" class="tool-button" title="Enchant/Improve Prompt">✨</button>
+                        <button id="delete-prompt-btn" class="tool-button" title="Clear Prompt Box">🗑️</button>
+                        <button id="save-prompt-btn" class="tool-button" title="Save Current Prompt">💾</button>
+                    </div>
+                </div>
+
+                <!-- Edit Mode Container (New) -->
+                <div id="edit-mode-container" class="hidden">
+                    <div id="edit-mode-switcher" class="flex w-full bg-gray-700/80 rounded-lg p-1 mb-4">
+                         <button id="perspective-edit-btn" class="flex-1 py-2 text-sm font-semibold rounded-md transition-colors">Perspective</button>
+                         <button id="hairstyle-edit-btn" class="flex-1 py-2 text-sm font-semibold rounded-md transition-colors">Hairstyle</button>
+                         <button id="background-edit-btn" class="flex-1 py-2 text-sm font-semibold rounded-md transition-colors">Background</button>
+                    </div>
+
+                    <!-- Perspective Edit Container -->
+                    <div id="perspective-edit-container">
+                        <div class="mb-2 flex justify-between items-center">
+                            <h2 class="text-lg font-semibold text-gray-300">Perspective Changer</h2>
+                        </div>
+                        <p class="text-sm text-gray-400 mb-4">Select a new camera angle. This mode requires at least one reference image.</p>
+                        <select id="perspective-select" class="w-full py-4 pl-4 pr-12 bg-gray-800/80 border border-gray-700/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            <option value="" disabled selected>Choose a perspective...</option>
+                            <option value="Bird's-eye view">Bird's-eye View</option>
+                            <option value="Rear view">Rear View</option>
+                            <option value="Side profile view">Side Profile View</option>
+                            <option value="Close-up portrait view">Close-up Portrait View</option>
+                            <option value="Low angle view">Low Angle View</option>
+                            <option value="High angle view">High Angle View</option>
+                            <option value="Wide angle shot">Wide Angle Shot</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Hairstyle Edit Container -->
+                    <div id="hairstyle-edit-container" class="hidden">
+                        <div class="mb-2 flex justify-between items-center">
+                            <h2 class="text-lg font-semibold text-gray-300">Hairstyle Changer</h2>
+                        </div>
+                        <p class="text-sm text-gray-400 mb-4">Choose a new hairstyle and color. This requires a reference image.</p>
+                        <select id="hairstyle-select" class="w-full py-4 pl-4 pr-12 mb-3 bg-gray-800/80 border border-gray-700/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            <option value="" disabled selected>Choose a hairstyle...</option>
+                            <option value="long wavy hair">Long Wavy Hair</option>
+                            <option value="short bob">Short Bob</option>
+                            <option value="curly updo">Curly Updo</option>
+                            <option value="ponytail">Ponytail</option>
+                            <option value="braids">Braids</option>
+                            <option value="buzz cut">Buzz Cut</option>
+                            <option value="other">Other...</option>
+                        </select>
+                        <input type="text" id="hairstyle-other-input" class="w-full p-4 bg-gray-800/80 border border-gray-700/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 hidden" placeholder="Specify other hairstyle...">
+                        <input type="text" id="hair-color-input" class="w-full p-4 mt-3 bg-gray-800/80 border border-gray-700/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Optional: Enter a hair color (e.g., chestnut brown)">
+                    </div>
+
+                    <!-- Background Edit Container -->
+                    <div id="background-edit-container" class="hidden">
+                        <div class="mb-2 flex justify-between items-center">
+                            <h2 class="text-lg font-semibold text-gray-300">Background Changer</h2>
+                        </div>
+                        <p class="text-sm text-gray-400 mb-4">Describe a new background scene or choose a solid color. Requires a reference image with a clear subject.</p>
+                        <select id="background-select" class="w-full py-4 pl-4 pr-12 mb-3 bg-gray-800/80 border border-gray-700/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            <option value="" disabled selected>Choose a scene...</option>
+                            <option value="a serene sunset beach with gentle waves, warm golden light">Sunset Beach</option>
+                            <option value="a lush green forest with sunbeams filtering through the trees">Lush Forest</option>
+                            <option value="a futuristic cityscape at night with neon lights">Futuristic Cityscape</option>
+                            <option value="a cozy library with tall bookshelves and a warm fireplace">Cozy Library</option>
+                            <option value="other">Other...</option>
+                        </select>
+                        <input type="text" id="background-other-input" class="w-full p-4 bg-gray-800/80 border border-gray-700/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 hidden" placeholder="Describe the new background scene...">
+                        <input type="text" id="background-color-input" class="w-full p-4 mt-3 bg-gray-800/80 border border-gray-700/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Or enter a solid color (e.g., white, #FF0000)">
+                    </div>
+                </div>
+                
+                <!-- PNG Info Mode Container -->
+                <div id="png-info-mode-container" class="hidden">
+                     <div class="mb-2 flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-gray-300">PNG Metadata Reader</h2>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-4">Upload a PNG to read its embedded prompt.</p>
+                    <label class="w-full h-32 bg-gray-800/80 border-2 border-dashed border-gray-700/80 rounded-lg flex flex-col justify-center items-center cursor-pointer hover:bg-gray-700/80 transition-colors">
+                        <span class="text-gray-400">Click or drop a PNG here</span>
+                        <input type="file" id="png-upload-input" class="hidden" accept="image/png">
+                    </label>
+                    <div id="png-info-display" class="mt-4 p-4 bg-gray-800/80 rounded-lg hidden">
+                        <h3 class="font-semibold text-teal-400 mb-2">Embedded Prompt:</h3>
+                        <p id="png-prompt-text" class="text-sm text-gray-300 whitespace-pre-wrap"></p>
+                        <button id="use-png-info-btn" class="w-full mt-4 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors">Use Image & Prompt</button>
+                    </div>
+                </div>
+
+
+                <!-- Reference Image Section -->
+                <div id="reference-section" class="my-6">
+                    <h2 class="text-lg font-semibold text-gray-300 mb-2">Reference</h2>
+                    <div class="flex items-center gap-3">
+                        <!-- Image Slot 1 -->
+                        <div class="image-slot" data-slot="0">
+                            <label class="image-upload-label w-20 h-20 sm:w-24 sm:h-24 bg-gray-800/80 border border-gray-700/80 rounded-lg flex justify-center items-center cursor-pointer transition-all duration-300 hover:bg-gray-700/80">
+                                <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <input type="file" class="file-input hidden" accept="image/*">
+                            </label>
+                            <div class="image-preview-container relative hidden w-20 h-20 sm:w-24 sm:h-24">
+                                <img class="image-preview w-full h-full object-cover rounded-lg border border-gray-700/80" src="" alt="Image Preview">
+                                <button class="remove-image-btn absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex justify-center items-center text-sm font-bold shadow-lg transition-transform duration-200 hover:scale-110">X</button>
+                            </div>
+                        </div>
+                        <!-- Image Slot 2 -->
+                        <div class="image-slot" data-slot="1">
+                            <label class="image-upload-label w-20 h-20 sm:w-24 sm:h-24 bg-gray-800/80 border border-gray-700/80 rounded-lg flex justify-center items-center cursor-pointer transition-all duration-300 hover:bg-gray-700/80">
+                                <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <input type="file" class="file-input hidden" accept="image/*">
+                            </label>
+                            <div class="image-preview-container relative hidden w-20 h-20 sm:w-24 sm:h-24">
+                                <img class="image-preview w-full h-full object-cover rounded-lg border border-gray-700/80" src="" alt="Image Preview">
+                                <button class="remove-image-btn absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex justify-center items-center text-sm font-bold shadow-lg transition-transform duration-200 hover:scale-110">X</button>
+                            </div>
+                        </div>
+                        <!-- Image Slot 3 -->
+                        <div class="image-slot" data-slot="2">
+                            <label class="image-upload-label w-20 h-20 sm:w-24 sm:h-24 bg-gray-800/80 border border-gray-700/80 rounded-lg flex justify-center items-center cursor-pointer transition-all duration-300 hover:bg-gray-700/80">
+                                <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <input type="file" class="file-input hidden" accept="image/*">
+                            </label>
+                            <div class="image-preview-container relative hidden w-20 h-20 sm:w-24 sm:h-24">
+                                <img class="image-preview w-full h-full object-cover rounded-lg border border-gray-700/80" src="" alt="Image Preview">
+                                <button class="remove-image-btn absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex justify-center items-center text-sm font-bold shadow-lg transition-transform duration-200 hover:scale-110">X</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End of scrollable content wrapper -->
+
+            <!-- Generate Button & Counter -->
+            <div class="w-full mt-auto relative"> <!-- Added relative positioning here -->
+                 <button id="generate-btn" class="generate-btn w-full py-4 text-white font-semibold rounded-lg shadow-lg text-lg transition-all duration-300">
+                     Generate
+                     <div id="cooldown-bar"></div> <!-- Cooldown bar inside the button -->
+                 </button>
+                 <p id="generation-counter" class="text-xs text-gray-500 text-center mt-2">Creations: 0</p>
+                 <a id="download-image-link" href="#" download="gemini_creation.png" class="download-link w-full mt-2 py-3 text-sm bg-blue-600 text-white rounded-lg font-medium transition-colors duration-200 hover:bg-blue-700 hidden">
+                    Download Image
+                 </a>
+            </div>
+        </div>
+
+        <!-- Render Result Area (Right Panel) -->
+        <div class="w-full lg:w-1/2 p-8 right-panel-bg flex flex-col items-center justify-center relative min-h-[400px] lg:h-auto">
+            <div id="result-box" class="w-full h-full flex items-center justify-center">
+                <div id="placeholder" class="placeholder-image w-full h-full rounded-lg text-lg sm:text-xl">
+                    Press "Generate" when you are ready!
+                </div>
+                <div id="loading-spinner" class="loading-animation hidden">
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                </div>
+                <img id="generated-image" class="w-full h-full object-contain rounded-lg hidden cursor-pointer" src="" alt="Generated Image">
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Error Modal -->
+    <div id="error-modal" class="modal">
+        <div class="modal-content bg-gray-900 rounded-lg shadow-2xl p-6 w-11/12 max-w-sm border border-red-500">
+            <h3 class="text-xl font-bold text-red-400 mb-4">Error</h3>
+            <p id="error-message" class="text-gray-300 mb-6"></p>
+            <button id="close-modal-btn" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors duration-200">Close</button>
+        </div>
+    </div>
+    
+    <!-- Success Modal -->
+    <div id="success-modal" class="modal">
+        <div class="modal-content bg-gray-900 rounded-lg shadow-2xl p-6 w-11/12 max-w-sm border border-teal-500">
+            <h3 class="text-xl font-bold text-teal-400 mb-4">Success</h3>
+            <p id="success-message" class="text-gray-300 mb-6"></p>
+            <button id="close-success-modal-btn" class="w-full bg-teal-600 text-white py-2 rounded-lg font-semibold hover:bg-teal-700 transition-colors duration-200">Close</button>
+        </div>
+    </div>
+
+    <!-- Magnify Modal (Image Zoom) -->
+    <div id="magnify-modal" class="modal flex-col">
+        
+        <!-- UI Controls for Magnify Modal -->
+        <div class="ui-control absolute top-4 right-4 flex space-x-2 z-20">
+            <button id="hide-ui-btn" class="text-white text-3xl p-2 bg-gray-800/80 rounded-full transition-transform duration-200 hover:scale-110 shadow-lg" title="Toggle Immersive View">
+                👁️
+            </button>
+            <button id="close-magnify-btn" class="text-white text-3xl p-2 bg-gray-800/80 rounded-full transition-transform duration-200 hover:scale-110 shadow-lg" title="Close Viewer">
+                &times;
+            </button>
+        </div>
+        
+        <!-- Image Content Area -->
+        <div id="magnify-content" class="w-full h-full overflow-hidden flex justify-center items-center relative">
+            <img id="magnified-image" class="max-w-full max-h-full object-contain cursor-pointer" src="" alt="Magnified Generated Image">
+        </div>
+    </div>
+    
+    <!-- Prompt Album Modal -->
+    <div id="album-modal" class="modal">
+        <div class="modal-content bg-gray-900 rounded-xl shadow-2xl p-6 w-11/12 max-w-lg border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-teal-400">Prompt Album</h3>
+                <button id="close-album-btn" class="text-gray-400 text-2xl hover:text-white transition-colors">&times;</button>
+            </div>
+            <p class="text-sm text-gray-500 mb-4">Select a prompt to load it into the prompt box.</p>
+            
+            <!-- New Load Section -->
+            <div class="mb-4 p-4 bg-gray-800/80 rounded-lg border border-gray-700/80">
+                <h4 class="font-semibold text-gray-300 mb-3">Load Prompt Album</h4>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <!-- File Upload Button -->
+                    <label class="flex-1 text-center py-2 px-4 bg-blue-600 text-white rounded-lg font-medium cursor-pointer hover:bg-blue-700 transition-colors">
+                        Upload .json File
+                        <input type="file" id="album-upload-input" class="hidden" accept=".json">
+                    </label>
+                    <!-- URL Load -->
+                    <input type="text" id="album-url-input" class="flex-grow p-2 bg-gray-700/80 border border-gray-600/80 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Or paste album URL...">
+                    <button id="album-url-load-btn" class="py-2 px-4 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors">Load</button>
+                </div>
+            </div>
+
+            <!-- Album List -->
+            <div id="album-list" class="max-h-80 overflow-y-auto rounded-lg border border-gray-800/80 divide-y divide-gray-800/80">
+                <!-- Prompt items will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt History Modal -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content bg-gray-900 rounded-xl shadow-2xl p-6 w-11/12 max-w-2xl border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-teal-400">Prompt History</h3>
+                <button id="close-history-btn" class="text-gray-400 text-2xl hover:text-white transition-colors">&times;</button>
+            </div>
+            <p class="text-sm text-gray-500 mb-4">Click a prompt to load it. Click "Save" to add it to your album.</p>
+            <div id="history-list" class="max-h-96 overflow-y-auto rounded-lg border border-gray-800/80">
+                <!-- History items will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- API Configuration ---
+        const API_KEY = ""; 
+        const IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${API_KEY}`;
+        const TEXT_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+
+        // --- DOM Element References ---
+        const DOMElements = {
+            promptBox: document.getElementById('prompt-box'),
+            imageSlots: document.querySelectorAll('.image-slot'),
+            generateBtn: document.getElementById('generate-btn'),
+            cooldownBar: document.getElementById('cooldown-bar'), // New Cooldown Bar
+            downloadImageLink: document.getElementById('download-image-link'),
+            placeholder: document.getElementById('placeholder'),
+            loadingSpinner: document.getElementById('loading-spinner'),
+            generatedImage: document.getElementById('generated-image'),
+            generationCounter: document.getElementById('generation-counter'),
+            particleContainer: document.getElementById('particle-container'), 
+            
+            // Modals
+            errorModal: document.getElementById('error-modal'),
+            errorMessage: document.getElementById('error-message'),
+            closeModalBtn: document.getElementById('close-modal-btn'),
+            successModal: document.getElementById('success-modal'),
+            successMessage: document.getElementById('success-message'),
+            closeSuccessModalBtn: document.getElementById('close-success-modal-btn'),
+            
+            // Main Mode UI
+            promptModeBtn: document.getElementById('prompt-mode-btn'),
+            editModeBtn: document.getElementById('edit-mode-btn'),
+            pngInfoModeBtn: document.getElementById('png-info-mode-btn'),
+            promptModeContainer: document.getElementById('prompt-mode-container'),
+            editModeContainer: document.getElementById('edit-mode-container'),
+            pngInfoModeContainer: document.getElementById('png-info-mode-container'),
+            referenceSection: document.getElementById('reference-section'),
+
+            // Edit Sub-Mode UI
+            perspectiveEditBtn: document.getElementById('perspective-edit-btn'),
+            hairstyleEditBtn: document.getElementById('hairstyle-edit-btn'),
+            backgroundEditBtn: document.getElementById('background-edit-btn'),
+            perspectiveEditContainer: document.getElementById('perspective-edit-container'),
+            hairstyleEditContainer: document.getElementById('hairstyle-edit-container'),
+            backgroundEditContainer: document.getElementById('background-edit-container'),
+            hairstyleSelect: document.getElementById('hairstyle-select'),
+            hairstyleOtherInput: document.getElementById('hairstyle-other-input'),
+            backgroundSelect: document.getElementById('background-select'),
+            backgroundOtherInput: document.getElementById('background-other-input'),
+            backgroundColorInput: document.getElementById('background-color-input'),
+
+            // PNG Info UI
+            pngUploadInput: document.getElementById('png-upload-input'),
+            pngInfoDisplay: document.getElementById('png-info-display'),
+            pngPromptText: document.getElementById('png-prompt-text'),
+            usePngInfoBtn: document.getElementById('use-png-info-btn'),
+            
+            // Tool buttons
+            restoreLastBtn: document.getElementById('restore-last-btn'),
+            enchantPromptBtn: document.getElementById('enchant-prompt-btn'),
+            deletePromptBtn: document.getElementById('delete-prompt-btn'),
+            savePromptBtn: document.getElementById('save-prompt-btn'),
+            
+            // Prompt Album
+            albumBtn: document.getElementById('album-btn'),
+            albumModal: document.getElementById('album-modal'),
+            closeAlbumBtn: document.getElementById('close-album-btn'),
+            albumList: document.getElementById('album-list'),
+            albumUploadInput: document.getElementById('album-upload-input'),
+            albumUrlInput: document.getElementById('album-url-input'),
+            albumUrlLoadBtn: document.getElementById('album-url-load-btn'),
+
+            // Prompt History
+            historyBtn: document.getElementById('history-btn'),
+            historyModal: document.getElementById('history-modal'),
+            closeHistoryBtn: document.getElementById('close-history-btn'),
+            historyList: document.getElementById('history-list'),
+
+            // Magnification
+            magnifyModal: document.getElementById('magnify-modal'),
+            magnifiedImage: document.getElementById('magnified-image'),
+            closeMagnifyBtn: document.getElementById('close-magnify-btn'),
+            magnifyContent: document.getElementById('magnify-content'),
+            hideUiBtn: document.getElementById('hide-ui-btn'), 
+            uiControls: document.querySelectorAll('.ui-control'), 
+        };
+
+        // --- State Variables ---
+        let state = {
+            currentMode: 'prompt', // 'prompt', 'edit', 'png-info'
+            currentEditMode: 'perspective', // 'perspective', 'hairstyle', 'background'
+            generationCount: 0,
+            promptHistory: [], // Stores past prompts
+            lastPrompt: "", // For the restore (undo) button
+            promptAlbum: {}, // Initialize as empty object
+            pngInfo: { imageData: null, prompt: '' },
+            magnify: {
+                zoomLevel: 1,
+                isDragging: false, 
+                startX: 0, startY: 0,
+                currentX: 0, currentY: 0,
+                lastTap: 0,
+                initialPinchDistance: 0,
+                lastZoomLevel: 1,
+                // Store last touch points for smoother multi-touch
+                lastTouch1: null,
+                lastTouch2: null,
+                 pinchCenterX: 0, // Store pinch center relative to image
+                 pinchCenterY: 0,
+            },
+            particleAnimationInterval: null, // To control particle generation
+            cooldownTimeout: null, // To manage button cooldown
+            isCooldownActive: false, // Flag to track if cooldown timer is running
+            isApiCallFinished: true // Track API call state for cooldown re-enabling
+        };
+        const ZOOM_INCREMENT = 1.5;
+        const MAX_ZOOM = 4;
+        const MIN_ZOOM = 1;
+        const DOUBLE_TAP_DELAY = 300; // ms
+        const COOLDOWN_DURATION = 8000; // 8 seconds
+
+        // Default prompt for the user
+        const defaultPrompt = `- Character:
+Full-body portrait standing confidently.
+Standing naturally, relaxed, facing the spectator.
+Her gaze is directed at the spectator, maintaining the exact same expression as in the reference.
+Arms resting naturally at her sides.
+- Details of the Character and Characteristics:
+Preserve all physical features exactly as in the reference (VERY IMPORTANT).
+Must be accurate and realistic: features, accessories, and natural proportions.
+Realistic soft-looking skin, with real texture and lifelike detail.
+- Outfit:
+Outfit must be preserved exactly as in the reference.
+Ensure fabric details and accessories are reproduced faithfully.
+- Scene and Composition:
+Seamless pitch-black background (no shadows, reflections, or gradients).
+The subject must be perfectly isolated, centered, and balanced.
+Clean and distraction-free presentation the woman is the only visual element.
+Lighting must be even, soft, and realistic, highlighting skin tones, fabric details, and natural textures without casting shadows on the background.`;
+
+        // --- Particle Animation ---
+        const particleColors = ['cyan', 'blue', 'green'];
+        function createParticle() {
+            const particle = document.createElement('div');
+            particle.classList.add('particle');
+            const color = particleColors[Math.floor(Math.random() * particleColors.length)];
+            particle.classList.add(color);
+            particle.style.left = `${Math.random() * 100}%`;
+            const duration = 4 + Math.random() * 3; // Random duration between 4s and 7s
+            particle.style.animation = `riseParticles ${duration}s linear forwards`; // Apply rise animation directly
+             // Random delay up to 4s
+            particle.style.animationDelay = `${Math.random() * 4}s`;
+
+            DOMElements.particleContainer.appendChild(particle);
+
+            // Set timeout for removal slightly after animation ends
+            setTimeout(() => {
+                 if (particle.parentNode) particle.remove();
+            }, (duration * 1000) + 100); // Remove after animation + small buffer
+        }
+
+        function startParticleAnimation() {
+            DOMElements.particleContainer.classList.add('active');
+            for (let i = 0; i < 20; i++) createParticle();
+            state.particleAnimationInterval = setInterval(createParticle, 200); 
+        }
+
+        function stopParticleAnimation() {
+             DOMElements.particleContainer.classList.remove('active'); // Fade container
+             clearInterval(state.particleAnimationInterval);
+             state.particleAnimationInterval = null;
+
+             const particles = DOMElements.particleContainer.querySelectorAll('.particle');
+             particles.forEach(particle => {
+                 // Stop any current animation
+                 particle.style.animation = 'none';
+                 // Get current vertical position (approximate)
+                 const computedStyle = window.getComputedStyle(particle);
+                 const matrix = new DOMMatrixReadOnly(computedStyle.transform);
+                 const currentY = matrix.m42; // This gives the translateY value
+
+                 // Apply falling transition
+                 particle.style.transition = 'transform 1.5s ease-in, opacity 1.5s ease-in';
+                 // Force reflow
+                 void particle.offsetWidth;
+                 // Set target state for falling
+                 // Make sure it falls *from* its current position
+                 particle.style.transform = `translateY(${window.innerHeight + Math.abs(currentY)}px) scale(0.5)`; // Fall off bottom relative to current position
+                 particle.style.opacity = '0';
+
+                 // Remove after transition
+                 particle.addEventListener('transitionend', () => {
+                     if (particle.parentNode) particle.remove();
+                 }, { once: true });
+                 // Backup removal
+                  setTimeout(() => {
+                      if (particle.parentNode) particle.remove();
+                  }, 1600); 
+             });
+        }
+
+
+        // --- UI Mode Management ---
+        const modeConfig = {
+            'prompt': { container: DOMElements.promptModeContainer, button: DOMElements.promptModeBtn, showReference: true, showGenerate: true },
+            'edit': { container: DOMElements.editModeContainer, button: DOMElements.editModeBtn, showReference: true, showGenerate: true },
+            'png-info': { container: DOMElements.pngInfoModeContainer, button: DOMElements.pngInfoModeBtn, showReference: false, showGenerate: false }
+        };
+
+        const editModeConfig = {
+            'perspective': { container: DOMElements.perspectiveEditContainer, button: DOMElements.perspectiveEditBtn },
+            'hairstyle': { container: DOMElements.hairstyleEditContainer, button: DOMElements.hairstyleEditBtn },
+            'background': { container: DOMElements.backgroundEditContainer, button: DOMElements.backgroundEditBtn }
+        };
+
+        function updateUIMode() {
+            Object.values(modeConfig).forEach(config => {
+                const isActive = config.button.id.startsWith(state.currentMode);
+                config.container.classList.toggle('hidden', !isActive);
+                config.button.classList.toggle('bg-teal-600', isActive);
+                config.button.classList.toggle('text-white', isActive);
+                config.button.classList.toggle('bg-gray-700', !isActive);
+                config.button.classList.toggle('text-gray-400', !isActive);
+
+                if (isActive) {
+                    DOMElements.referenceSection.classList.toggle('hidden', !config.showReference);
+                    DOMElements.generateBtn.classList.toggle('hidden', !config.showGenerate);
+                    // Also hide download link if generate is hidden
+                    const showDownload = config.showGenerate && DOMElements.downloadImageLink.href !== '#' && !DOMElements.downloadImageLink.classList.contains('hidden');
+                    DOMElements.downloadImageLink.classList.toggle('hidden', !showDownload);
+                }
+            });
+            if (state.currentMode === 'edit') updateUIEditMode();
+        }
+
+        function updateUIEditMode() {
+            Object.values(editModeConfig).forEach(config => {
+                const isActive = config.button.id.startsWith(state.currentEditMode);
+                config.container.classList.toggle('hidden', !isActive);
+                config.button.classList.toggle('bg-teal-500', isActive); // Use a slightly different color for sub-mode
+                config.button.classList.toggle('text-white', isActive);
+                config.button.classList.toggle('bg-gray-600', !isActive); // Default sub-mode color
+                 config.button.classList.toggle('text-gray-300', !isActive);
+            });
+        }
+
+        function setupModeSwitching() {
+            DOMElements.promptModeBtn.addEventListener('click', () => { state.currentMode = 'prompt'; updateUIMode(); });
+            DOMElements.editModeBtn.addEventListener('click', () => { state.currentMode = 'edit'; updateUIMode(); });
+            DOMElements.pngInfoModeBtn.addEventListener('click', () => { state.currentMode = 'png-info'; updateUIMode(); });
+            
+            Object.keys(editModeConfig).forEach(mode => {
+                editModeConfig[mode].button.addEventListener('click', () => {
+                    state.currentEditMode = mode;
+                    updateUIEditMode();
+                });
+            });
+            
+            DOMElements.hairstyleSelect.addEventListener('change', () => {
+                DOMElements.hairstyleOtherInput.classList.toggle('hidden', DOMElements.hairstyleSelect.value !== 'other');
+            });
+             DOMElements.backgroundSelect.addEventListener('change', () => {
+                DOMElements.backgroundOtherInput.classList.toggle('hidden', DOMElements.backgroundSelect.value !== 'other');
+            });
+        }
+
+
+        // --- Modal, Album & History Functions ---
+        function showModal(message) {
+            DOMElements.errorMessage.textContent = message;
+            DOMElements.errorModal.style.display = 'flex';
+        }
+        function showSuccessModal(message) {
+            DOMElements.successMessage.textContent = message;
+            DOMElements.successModal.style.display = 'flex';
+        }
+        const openModal = (modal) => () => { modal.style.display = 'flex'; };
+        const closeModal = (modal) => () => { modal.style.display = 'none'; };
+
+        function loadPrompt(promptKey) {
+            state.lastPrompt = DOMElements.promptBox.value;
+            DOMElements.promptBox.value = state.promptAlbum[promptKey]; 
+            closeModal(DOMElements.albumModal)();
+        }
+
+        function validateAndSetAlbum(newAlbum, sourceName) {
+            if (typeof newAlbum !== 'object' || newAlbum === null || Array.isArray(newAlbum)) {
+                throw new Error("Invalid album format. Must be a JSON object (key-value pairs).");
+            }
+            if (Object.values(newAlbum).some(val => typeof val !== 'string')) {
+                throw new Error("Invalid album format. All prompts must be strings.");
+            }
+            
+            state.promptAlbum = newAlbum;
+            renderPromptAlbum();
+            showSuccessModal(`Album successfully loaded from ${sourceName}!`);
+            DOMElements.albumUrlInput.value = '';
+        }
+
+        async function loadAlbumFromFile(file) {
+            if (!file || !file.name.endsWith('.json')) {
+                showModal("Invalid file type. Please select a .json file.");
+                return;
+            }
+            try {
+                const newAlbum = JSON.parse(await file.text());
+                validateAndSetAlbum(newAlbum, file.name);
+            } catch (error) {
+                showModal("Failed to load album: " + error.message);
+            }
+            DOMElements.albumUploadInput.value = null;
+        }
+
+        async function loadAlbumFromUrl(url) {
+            if (!url || !url.startsWith('http')) {
+                showModal("Please enter a valid URL (starting with http:// or https://).");
+                return;
+            }
+            const btn = DOMElements.albumUrlLoadBtn;
+            btn.disabled = true;
+            btn.textContent = '...';
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
+                validateAndSetAlbum(await response.json(), "URL");
+            } catch (error) {
+                showModal("Failed to load album from URL: " + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Load';
+            }
+        }
+
+        function renderList(element, items, renderItem) {
+            element.innerHTML = '';
+            if (items.length === 0) {
+                element.innerHTML = `<div class="p-4 text-center text-gray-500">${element.dataset.emptyMessage || 'No items.'}</div>`;
+                return;
+            }
+            items.forEach(item => element.appendChild(renderItem(item)));
+        }
+
+        function renderPromptAlbum() {
+            const items = Object.entries(state.promptAlbum);
+            renderList(DOMElements.albumList, items, ([key, prompt]) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'album-prompt-item text-sm sm:text-base';
+                const firstLine = prompt.split('\n').find(line => line.trim()) || 'No description.';
+                itemEl.innerHTML = `<p class="font-semibold text-teal-300">${key}</p><p class="text-xs text-gray-500 truncate">${firstLine.substring(0, 100)}</p>`;
+                itemEl.onclick = () => loadPrompt(key);
+                return itemEl;
+            });
+        }
+        
+        function renderPromptHistory() {
+            const items = [...state.promptHistory].reverse();
+            renderList(DOMElements.historyList, items, (promptText) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'p-4 border-b border-gray-800/80 flex justify-between items-center gap-4'; // Adjusted border opacity
+                itemEl.innerHTML = `<p class="text-sm text-gray-300 truncate cursor-pointer flex-grow hover:text-teal-300" title="${promptText}">${promptText}</p>
+                                    <button class="py-1 px-3 text-xs bg-blue-600 text-white rounded-full font-medium transition-colors duration-200 hover:bg-blue-700 flex-shrink-0">Save</button>`;
+                itemEl.querySelector('p').onclick = () => {
+                    state.lastPrompt = DOMElements.promptBox.value;
+                    DOMElements.promptBox.value = promptText;
+                    closeModal(DOMElements.historyModal)();
+                };
+                itemEl.querySelector('button').onclick = () => savePrompt(promptText);
+                return itemEl;
+            });
+        }
+
+
+        // --- Tool Functions ---
+        function addToHistory(prompt) {
+            if (!prompt || prompt.trim() === '' || state.promptHistory.at(-1) === prompt) return;
+            state.promptHistory.push(prompt);
+            if (state.promptHistory.length > 50) state.promptHistory.shift();
+        }
+        function restoreLastPrompt() {
+            if (!state.lastPrompt) return;
+            const current = DOMElements.promptBox.value;
+            DOMElements.promptBox.value = state.lastPrompt;
+            state.lastPrompt = current;
+        }
+        function deletePrompt() {
+            state.lastPrompt = DOMElements.promptBox.value; 
+            DOMElements.promptBox.value = "";
+        }
+        function savePrompt(promptText) {
+            if (!promptText) {
+                showModal("The prompt is empty. There's nothing to save.");
+                return;
+            }
+            const promptName = prompt("Please enter a name for this prompt:", "My New Prompt");
+            if (promptName === null || promptName.trim() === "") return;
+            if (Object.prototype.hasOwnProperty.call(state.promptAlbum, promptName)) {
+                showModal(`A prompt named "${promptName}" already exists.`);
+                return;
+            }
+            state.promptAlbum[promptName] = promptText;
+            showSuccessModal(`Prompt saved as "${promptName}"!`);
+        }
+        async function fetchEnchantedPrompt(prompt) {
+            if (!prompt) {
+                showModal("Please enter a base prompt before trying to enchant it.");
+                return;
+            }
+            state.lastPrompt = DOMElements.promptBox.value;
+            DOMElements.enchantPromptBtn.disabled = true;
+            DOMElements.enchantPromptBtn.textContent = '...';
+
+            const systemPrompt = "You are a world-class prompt engineer for image generation AI. Your task is to take the user's short or basic prompt and expand it into a detailed, creative, and technical prompt that maximizes image quality and realism. Add details about lighting, camera settings (like 35mm, cinematic, volumetric), artistic style, texture, and mood. The response MUST ONLY contain the single, fully enhanced prompt text, nothing else. Preserve the core subject of the original prompt.";
+            const payload = {
+                contents: [{ parts: [{ text: `Enchant and detail this image generation prompt: "${prompt}"` }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+            try {
+                const response = await fetchWithRetry(TEXT_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const result = await response.json();
+                const newPrompt = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                if (newPrompt) DOMElements.promptBox.value = newPrompt;
+                else showModal("Enchantment failed: Could not retrieve a new prompt from the AI.");
+            } catch (error) {
+                showModal("Error enchanting prompt: " + error.message);
+                DOMElements.promptBox.value = state.lastPrompt;
+            } finally {
+                DOMElements.enchantPromptBtn.disabled = false;
+                DOMElements.enchantPromptBtn.textContent = '✨';
+            }
+        }
+
+        // --- Magnify/Zoom/Pan Functions ---
+        function updateMagnifiedImageTransform() {
+            const { currentX, currentY, zoomLevel } = state.magnify;
+            DOMElements.magnifiedImage.style.transform = `translate(${currentX}px, ${currentY}px) scale(${zoomLevel})`;
+            DOMElements.magnifiedImage.style.cursor = zoomLevel > MIN_ZOOM ? 'grab' : 'pointer';
+        }
+        function toggleZoom() {
+            state.magnify.zoomLevel = state.magnify.zoomLevel > MIN_ZOOM ? MIN_ZOOM : ZOOM_INCREMENT;
+            if (state.magnify.zoomLevel === MIN_ZOOM) {
+                state.magnify.currentX = 0;
+                state.magnify.currentY = 0;
+            }
+            updateMagnifiedImageTransform();
+        }
+        function openMagnifyModal() {
+            if (DOMElements.generatedImage.src && !DOMElements.generatedImage.classList.contains('hidden')) {
+                DOMElements.magnifiedImage.src = DOMElements.generatedImage.src;
+                Object.assign(state.magnify, { zoomLevel: MIN_ZOOM, currentX: 0, currentY: 0, isDragging: false });
+                DOMElements.uiControls.forEach(el => el.classList.remove('ui-hidden'));
+                updateMagnifiedImageTransform();
+                openModal(DOMElements.magnifyModal)();
+            }
+        }
+        const getDistance = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+
+        // --- Setup Event Listeners ---
+        function setupEventListeners() {
+            // Modals
+            DOMElements.closeModalBtn.addEventListener('click', closeModal(DOMElements.errorModal));
+            DOMElements.closeSuccessModalBtn.addEventListener('click', closeModal(DOMElements.successModal));
+            
+            // Album
+            DOMElements.albumBtn.addEventListener('click', () => { renderPromptAlbum(); openModal(DOMElements.albumModal)(); });
+            DOMElements.closeAlbumBtn.addEventListener('click', closeModal(DOMElements.albumModal));
+            DOMElements.albumUploadInput.addEventListener('change', (e) => loadAlbumFromFile(e.target.files[0]));
+            DOMElements.albumUrlLoadBtn.addEventListener('click', () => loadAlbumFromUrl(DOMElements.albumUrlInput.value));
+
+            // History
+            DOMElements.historyBtn.addEventListener('click', () => { renderPromptHistory(); openModal(DOMElements.historyModal)(); });
+            DOMElements.closeHistoryBtn.addEventListener('click', closeModal(DOMElements.historyModal));
+            
+            // Tools
+            DOMElements.restoreLastBtn.addEventListener('click', restoreLastPrompt);
+            DOMElements.deletePromptBtn.addEventListener('click', deletePrompt);
+            DOMElements.enchantPromptBtn.addEventListener('click', () => fetchEnchantedPrompt(DOMElements.promptBox.value));
+            DOMElements.savePromptBtn.addEventListener('click', () => savePrompt(DOMElements.promptBox.value.trim()));
+            
+            // Image Interactions
+            DOMElements.generatedImage.addEventListener('click', openMagnifyModal);
+            
+            // Magnify Modal Controls
+            DOMElements.closeMagnifyBtn.addEventListener('click', closeModal(DOMElements.magnifyModal));
+            DOMElements.hideUiBtn.addEventListener('click', (e) => { e.stopPropagation(); DOMElements.uiControls.forEach(el => el.classList.toggle('ui-hidden')); });
+            DOMElements.magnifyModal.addEventListener('click', (e) => {
+                if ((e.target === DOMElements.magnifyModal || e.target === DOMElements.magnifyContent) && DOMElements.uiControls[0].classList.contains('ui-hidden')) {
+                     DOMElements.uiControls.forEach(el => el.classList.toggle('ui-hidden'));
+                }
+            });
+            
+            // --- Magnify Gestures (Desktop & Mobile) ---
+            
+            // Desktop Mouse Events
+            DOMElements.magnifiedImage.addEventListener('click', (e) => { // Double click check
+                const now = Date.now();
+                if (now - state.magnify.lastTap < DOUBLE_TAP_DELAY) {
+                    e.preventDefault(); e.stopPropagation();
+                    if (!state.magnify.isDragging) toggleZoom();
+                    state.magnify.lastTap = 0;
+                } else {
+                    state.magnify.lastTap = now;
+                }
+            });
+            DOMElements.magnifyContent.addEventListener('mousedown', (e) => { // Start pan
+                if (state.magnify.zoomLevel > MIN_ZOOM && e.target === DOMElements.magnifiedImage) {
+                    e.preventDefault();
+                    Object.assign(state.magnify, { isDragging: true, startX: e.clientX - state.magnify.currentX, startY: e.clientY - state.magnify.currentY });
+                    DOMElements.magnifiedImage.style.cursor = 'grabbing';
+                }
+            });
+            document.addEventListener('mousemove', (e) => { // Perform pan
+                if (!state.magnify.isDragging || DOMElements.magnifyModal.style.display !== 'flex') return;
+                state.magnify.currentX = e.clientX - state.magnify.startX;
+                state.magnify.currentY = e.clientY - state.magnify.startY;
+                updateMagnifiedImageTransform();
+            });
+            document.addEventListener('mouseup', () => { // End pan
+                if (state.magnify.isDragging) {
+                    state.magnify.isDragging = false;
+                    DOMElements.magnifiedImage.style.cursor = state.magnify.zoomLevel > MIN_ZOOM ? 'grab' : 'pointer';
+                }
+            });
+            // Desktop Wheel Zoom (Optional, but good UX)
+             DOMElements.magnifyContent.addEventListener('wheel', (e) => {
+                if (DOMElements.magnifyModal.style.display === 'flex') {
+                    e.preventDefault();
+                    const scaleAmount = 1.1;
+                    const delta = e.deltaY > 0 ? 1 / scaleAmount : scaleAmount; // Zoom in or out
+                    let newZoom = state.magnify.zoomLevel * delta;
+                    newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom)); // Clamp zoom
+                    
+                    if (newZoom !== state.magnify.zoomLevel) {
+                         // Zoom towards the mouse pointer position
+                         const rect = DOMElements.magnifyContent.getBoundingClientRect();
+                         const offsetX = (e.clientX - rect.left) - state.magnify.currentX;
+                         const offsetY = (e.clientY - rect.top) - state.magnify.currentY;
+                         const zoomRatio = newZoom / state.magnify.zoomLevel;
+
+                         state.magnify.currentX -= offsetX * (zoomRatio - 1);
+                         state.magnify.currentY -= offsetY * (zoomRatio - 1);
+                         state.magnify.zoomLevel = newZoom;
+                         
+                         if(state.magnify.zoomLevel === MIN_ZOOM) { // Reset position if zoomed all the way out
+                              state.magnify.currentX = 0;
+                              state.magnify.currentY = 0;
+                         }
+                         updateMagnifiedImageTransform();
+                    }
+                }
+            }, { passive: false });
+
+
+            // Mobile Touch Events (Corrected)
+            DOMElements.magnifyContent.addEventListener('touchstart', (e) => {
+                 if (e.target !== DOMElements.magnifiedImage) return; // Only interact with image
+                const touches = e.touches;
+                state.magnify.isDragging = false; // Reset dragging flag on new touch start
+                if (touches.length === 1 && state.magnify.zoomLevel > MIN_ZOOM) {
+                    // Start pan
+                    const touch = touches[0];
+                    Object.assign(state.magnify, { startX: touch.clientX - state.magnify.currentX, startY: touch.clientY - state.magnify.currentY });
+                    state.magnify.lastTouch1 = { x: touch.clientX, y: touch.clientY }; // Store initial touch point
+                    state.magnify.lastTouch2 = null; // Clear second touch point
+                } else if (touches.length === 2) {
+                    // Start pinch
+                    state.magnify.initialPinchDistance = getDistance(touches);
+                    state.magnify.lastZoomLevel = state.magnify.zoomLevel;
+                    // Calculate pinch center relative to image for smooth zoom
+                    const rect = DOMElements.magnifyContent.getBoundingClientRect();
+                    const center = {
+                        x: (touches[0].clientX + touches[1].clientX) / 2 - rect.left,
+                        y: (touches[0].clientY + touches[1].clientY) / 2 - rect.top
+                    };
+                    state.magnify.pinchCenterX = (center.x - state.magnify.currentX) / state.magnify.zoomLevel;
+                    state.magnify.pinchCenterY = (center.y - state.magnify.currentY) / state.magnify.zoomLevel;
+                    state.magnify.lastTouch1 = { x: touches[0].clientX, y: touches[0].clientY };
+                    state.magnify.lastTouch2 = { x: touches[1].clientX, y: touches[1].clientY };
+                }
+            }, { passive: true }); // Use passive for start unless preventing double tap zoom
+
+            DOMElements.magnifyContent.addEventListener('touchmove', (e) => {
+                 if (e.target !== DOMElements.magnifiedImage) return;
+                e.preventDefault(); // Prevent page scroll during pan/zoom
+                const touches = e.touches;
+                
+                if (touches.length === 1 && state.magnify.zoomLevel > MIN_ZOOM && state.magnify.lastTouch1) {
+                     // Perform pan
+                     state.magnify.isDragging = true; // Set dragging flag
+                     const touch = touches[0];
+                     // Calculate delta from the start of the drag, not the previous move
+                     state.magnify.currentX = touch.clientX - state.magnify.startX;
+                     state.magnify.currentY = touch.clientY - state.magnify.startY;
+                     updateMagnifiedImageTransform();
+                     // No need to update lastTouch1 here for panning based on startX/Y
+                } else if (touches.length === 2 && state.magnify.initialPinchDistance > 0 && state.magnify.lastTouch1 && state.magnify.lastTouch2) {
+                    state.magnify.isDragging = false; // Stop potential pan during pinch
+                    
+                    // --- Perform Pinch Zoom ---
+                    const newDistance = getDistance(touches);
+                    const scaleFactor = newDistance / state.magnify.initialPinchDistance;
+                    let newZoom = state.magnify.lastZoomLevel * scaleFactor;
+                    newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom)); // Clamp
+
+                     // Zoom towards the pinch center calculated in touchstart
+                     const rect = DOMElements.magnifyContent.getBoundingClientRect();
+                     const currentPinchCenterX = (touches[0].clientX + touches[1].clientX) / 2 - rect.left;
+                     const currentPinchCenterY = (touches[0].clientY + touches[1].clientY) / 2 - rect.top;
+
+                     // Calculate the translation needed to keep the pinch center stable
+                     state.magnify.currentX = currentPinchCenterX - state.magnify.pinchCenterX * newZoom;
+                     state.magnify.currentY = currentPinchCenterY - state.magnify.pinchCenterY * newZoom;
+
+                     state.magnify.zoomLevel = newZoom; // Apply the new zoom level
+
+                    updateMagnifiedImageTransform();
+                    // Update last touch points for continuous pinch/pan
+                    // state.magnify.lastTouch1 = { x: touches[0].clientX, y: touches[0].clientY };
+                    // state.magnify.lastTouch2 = { x: touches[1].clientX, y: touches[1].clientY };
+                     // Don't update last touch points here; use initial pinch distance and center
+                }
+            }, { passive: false }); // Need false to prevent default scroll/zoom
+
+            DOMElements.magnifyContent.addEventListener('touchend', (e) => {
+                 if (e.target !== DOMElements.magnifiedImage) return;
+                // Handle double tap
+                const now = Date.now();
+                // Only check double tap if it was a single finger release
+                if (e.touches.length === 0 && e.changedTouches.length === 1) { // Check changedTouches length
+                     // Only toggle zoom if not dragging (prevents zoom on drag end)
+                    if (now - state.magnify.lastTap < DOUBLE_TAP_DELAY && !state.magnify.isDragging) {
+                        e.preventDefault(); // Prevent default zoom behavior if applicable
+                        toggleZoom();
+                        state.magnify.lastTap = 0; // Reset tap timer
+                    } else {
+                        state.magnify.lastTap = now;
+                    }
+                }
+                
+                // Reset states when fingers are lifted
+                if (e.touches.length < 2) {
+                     state.magnify.initialPinchDistance = 0; // Reset pinch state
+                     state.magnify.lastZoomLevel = state.magnify.zoomLevel; // Update last zoom level for next pinch
+                }
+                 if (e.touches.length === 0) {
+                      state.magnify.isDragging = false; // Reset drag flag when all fingers lift
+                      state.magnify.lastTouch1 = null;
+                      state.magnify.lastTouch2 = null;
+                 } else if (e.touches.length === 1) {
+                      // If one finger remains after pinch, reset start for panning
+                      const touch = e.touches[0];
+                      // Reset startX/Y based on the remaining finger's CURRENT position
+                      Object.assign(state.magnify, { startX: touch.clientX - state.magnify.currentX, startY: touch.clientY - state.magnify.currentY });
+                      state.magnify.lastTouch1 = { x: touch.clientX, y: touch.clientY };
+                      state.magnify.lastTouch2 = null; // Clear second touch point
+                 }
+            });
+
+
+            // --- Image Slots ---
+            DOMElements.imageSlots.forEach(slot => {
+                const fileInput = slot.querySelector('.file-input');
+                const imagePreviewContainer = slot.querySelector('.image-preview-container');
+                const uploadLabel = slot.querySelector('.image-upload-label');
+                fileInput.addEventListener('change', (event) => {
+                    if (event.target.files[0]) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            slot.querySelector('.image-preview').src = e.target.result;
+                            imagePreviewContainer.classList.remove('hidden');
+                            uploadLabel.classList.add('hidden');
+                        };
+                        reader.readAsDataURL(event.target.files[0]);
+                    }
+                });
+                slot.querySelector('.remove-image-btn').addEventListener('click', () => {
+                    imagePreviewContainer.classList.add('hidden');
+                    uploadLabel.classList.remove('hidden');
+                    fileInput.value = '';
+                });
+            });
+            // PNG Info Mode Upload
+             DOMElements.pngUploadInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                    const prompt = await extractPromptFromPNG(file);
+                    const imageData = await new Promise((res, rej) => {
+                        const reader = new FileReader();
+                        reader.onload = e => res(e.target.result);
+                        reader.onerror = rej;
+                        reader.readAsDataURL(file);
+                    });
+                    state.pngInfo = { imageData, prompt: prompt || '' };
+                    DOMElements.pngPromptText.textContent = prompt || "No embedded prompt found in this PNG.";
+                    DOMElements.usePngInfoBtn.classList.toggle('hidden', !prompt);
+                    DOMElements.pngInfoDisplay.classList.remove('hidden');
+                } catch (error) {
+                    console.error("Error reading PNG:", error);
+                    showModal("Could not read the PNG file or extract data.");
+                    DOMElements.pngInfoDisplay.classList.add('hidden');
+                }
+            });
+            DOMElements.usePngInfoBtn.addEventListener('click', () => {
+                if (!state.pngInfo.imageData) return;
+                state.currentMode = 'prompt';
+                updateUIMode();
+                DOMElements.promptBox.value = state.pngInfo.prompt;
+                const firstSlot = DOMElements.imageSlots[0];
+                firstSlot.querySelector('.image-preview').src = state.pngInfo.imageData;
+                firstSlot.querySelector('.image-preview-container').classList.remove('hidden');
+                firstSlot.querySelector('.image-upload-label').classList.add('hidden');
+                showSuccessModal("Image and prompt loaded successfully!");
+            });
+
+            // --- Generate Button ---
+            DOMElements.generateBtn.addEventListener('click', handleGeneration);
+        }
+
+        // --- API & Core Logic (fetchWithRetry, embed/extract PNG, getGenerationPrompt, handleGeneration) ---
+        // ... (Keep the existing functions: fetchWithRetry, crc32, embedPromptInPNG, extractPromptFromPNG, getGenerationPrompt, handleGeneration) ...
+         async function fetchWithRetry(url, options, maxRetries = 3) {
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429 && attempt < maxRetries - 1) {
+                        await new Promise(res => setTimeout(res, 1000 * Math.pow(2, attempt)));
+                        continue;
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error.message || `API call failed with status: ${response.status}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (attempt >= maxRetries - 1) throw error;
+                }
+            }
+            throw new Error("API call failed after multiple retries.");
+        }
+
+        const crc32 = (() => {
+            const table = new Uint32Array(256).map((t, i) => {
+                let c = i;
+                for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                return c;
+            });
+            return (buf) => (buf.reduce((crc, byte) => (crc >>> 8) ^ table[(crc ^ byte) & 0xFF], -1) ^ -1) >>> 0;
+        })();
+        
+        function embedPromptInPNG(base64Data, prompt) {
+            try {
+                const binaryString = atob(base64Data);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                const keyword = 'Comment';
+                const keywordBytes = new TextEncoder().encode(keyword);
+                const promptBytes = new TextEncoder().encode(prompt);
+                
+                const chunkData = new Uint8Array(keywordBytes.length + 1 + promptBytes.length);
+                chunkData.set(keywordBytes, 0);
+                chunkData.set([0], keywordBytes.length); // Null separator
+                chunkData.set(promptBytes, keywordBytes.length + 1);
+
+                const chunkLength = chunkData.length;
+                const chunkType = new Uint8Array([116, 69, 88, 116]); // 'tEXt'
+                const chunk = new Uint8Array(12 + chunkLength);
+                const view = new DataView(chunk.buffer);
+                
+                view.setUint32(0, chunkLength, false); // Length
+                chunk.set(chunkType, 4);              // Type
+                chunk.set(chunkData, 8);               // Data
+                
+                const crcData = new Uint8Array(4 + chunkLength);
+                crcData.set(chunkType, 0);
+                crcData.set(chunkData, 4);
+                const crc = crc32(crcData);
+                view.setUint32(8 + chunkLength, crc, false); // CRC
+
+                const iendOffset = bytes.length - 12; 
+                if (String.fromCharCode(...bytes.slice(iendOffset + 4, iendOffset + 8)) !== 'IEND') {
+                    console.warn("Could not reliably find IEND chunk, metadata might be misplaced.");
+                }
+                
+                const newBytes = new Uint8Array(bytes.length + chunk.length);
+                newBytes.set(bytes.subarray(0, iendOffset), 0); // Data before IEND
+                newBytes.set(chunk, iendOffset);                // tEXt chunk
+                newBytes.set(bytes.subarray(iendOffset), iendOffset + chunk.length); // IEND chunk
+
+                let newBinaryString = '';
+                newBytes.forEach(byte => newBinaryString += String.fromCharCode(byte));
+                return btoa(newBinaryString);
+            } catch (e) {
+                console.error("Failed to embed metadata:", e);
+                return base64Data; // Return original if embedding fails
+            }
+        }
+
+        function extractPromptFromPNG(file) {
+             return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const bytes = new Uint8Array(e.target.result);
+                        let i = 8; // Start after PNG signature
+                        while (i < bytes.length) {
+                            const view = new DataView(e.target.result);
+                            const length = view.getUint32(i, false); 
+                            if (length > bytes.length || length < 0 || i + 12 + length > bytes.length) { 
+                                console.error("Invalid chunk length or offset detected.");
+                                break; 
+                            }
+                            const chunkType = String.fromCharCode(...bytes.slice(i + 4, i + 8));
+                            
+                            if (chunkType === 'tEXt') {
+                                const chunkData = bytes.subarray(i + 8, i + 8 + length);
+                                let nullSeparatorIndex = -1;
+                                for (let k = 0; k < chunkData.length; k++) {
+                                    if (chunkData[k] === 0) {
+                                        nullSeparatorIndex = k;
+                                        break;
+                                    }
+                                }
+
+                                if (nullSeparatorIndex !== -1) {
+                                    const keyword = new TextDecoder('iso-8859-1').decode(chunkData.subarray(0, nullSeparatorIndex));
+                                    if (keyword === 'Comment') {
+                                        const promptText = new TextDecoder('utf-8').decode(chunkData.subarray(nullSeparatorIndex + 1));
+                                        resolve(promptText);
+                                        return;
+                                    }
+                                }
+                            }
+                            
+                            i += 12 + length; 
+                            if (chunkType === 'IEND') break; 
+                        }
+                        resolve(null); // No relevant tEXt chunk found
+                    } catch (readError) {
+                         console.error("Error processing PNG data:", readError);
+                         reject(readError); // Reject the promise on error
+                    }
+                };
+                reader.onerror = (err) => {
+                    console.error("FileReader error:", err);
+                    reject(err); // Reject promise on FileReader error
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+        
+
+        function getGenerationPrompt() {
+            if (state.currentMode === 'prompt') {
+                return { prompt: DOMElements.promptBox.value, historyPrompt: DOMElements.promptBox.value };
+            }
+            if (state.currentMode === 'edit') {
+                if (state.currentEditMode === 'perspective') {
+                    const selected = document.getElementById('perspective-select').value;
+                    if (!selected) { showModal("Please select a perspective."); return null; }
+                    return {
+                        prompt: `Change the camera perspective to ${selected} while keeping all existing subjects and objects intact. Adjust the angle, depth, and composition so the scene looks natural from this new perspective. Maintain consistent lighting, shadows, colors, and textures for a seamless and photorealistic result. Ensure the final image is high-resolution and detailed, preserving the original photo's quality while reflecting the chosen perspective.`,
+                        historyPrompt: `Perspective change to: ${selected}`
+                    };
+                }
+                if (state.currentEditMode === 'hairstyle') {
+                    let selectedStyle = document.getElementById('hairstyle-select').value;
+                    if (selectedStyle === 'other') selectedStyle = document.getElementById('hairstyle-other-input').value.trim();
+                    if (!selectedStyle) { showModal("Please select or specify a hairstyle."); return null; }
+                    const color = document.getElementById('hair-color-input').value.trim();
+                    const colorPart = color ? ` and optionally adjust hair color to ${color}` : '';
+                    return {
+                        prompt: `Change the subject's hairstyle to ${selectedStyle}${colorPart} while keeping facial features, expression, and background intact. Ensure the new hairstyle blends naturally with the head shape, lighting, and textures. Maintain all other elements of the image, including clothing and background. Seamless, realistic, and high-resolution result.`,
+                        historyPrompt: `Hairstyle change to: ${selectedStyle}` + (color ? ` (${color})` : '')
+                    };
+                }
+                 if (state.currentEditMode === 'background') {
+                    const color = DOMElements.backgroundColorInput.value.trim();
+                    let selectedScene = DOMElements.backgroundSelect.value;
+                    if (selectedScene === 'other') {
+                        selectedScene = DOMElements.backgroundOtherInput.value.trim();
+                    }
+
+                    if (color) {
+                        return {
+                            prompt: `Replace the current background with a solid ${color} color background, while keeping the subject exactly as photographed. Ensure there are no shadows or reflections on the new background. Maintain the original subject’s pose, clothing details, lighting, and sharpness. Use high-resolution output and preserve a photo-realistic style.`,
+                            historyPrompt: `Background change to: solid ${color}`
+                        };
+                    }
+
+                    if (selectedScene) {
+                         return {
+                            prompt: `Replace the current background with a ${selectedScene}, while keeping the subject exactly as photographed. Maintain the original subject’s pose, clothing details, lighting, and sharpness. Ensure natural color matching, realistic shadows, and seamless edges so the subject blends smoothly into the new environment. Use high-resolution output and preserve a photo-realistic style.`,
+                            historyPrompt: `Background change to: ${selectedScene}`
+                        };
+                    }
+                    
+                    showModal("Please describe a new background or enter a solid color.");
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        async function handleGeneration() {
+            // Check if cooldown is active
+            if (state.isCooldownActive) return; // Prevent generation during cooldown
+
+            const promptData = getGenerationPrompt();
+            if (!promptData) return; // Exit if prompt validation failed
+
+            // Start Cooldown and Disable Button
+            DOMElements.generateBtn.disabled = true;
+            state.isCooldownActive = true;
+            state.isApiCallFinished = false; // Mark API call as started
+            clearTimeout(state.cooldownTimeout); // Clear previous just in case
+
+            const cooldownBar = DOMElements.cooldownBar;
+            cooldownBar.style.transition = 'none'; 
+            cooldownBar.style.transform = 'scaleX(1)'; 
+            void cooldownBar.offsetWidth; 
+            cooldownBar.classList.add('active'); 
+
+            state.cooldownTimeout = setTimeout(() => {
+                cooldownBar.classList.remove('active'); 
+                state.isCooldownActive = false; // Cooldown finished
+                // Only re-enable if API is also finished
+                if (state.isApiCallFinished) {
+                    DOMElements.generateBtn.disabled = false;
+                }
+                 // Reset transform instantly after animation/timeout
+                setTimeout(() => {
+                     cooldownBar.style.transition = 'transform 0.1s linear';
+                     cooldownBar.style.transform = 'scaleX(0)';
+                }, 100); // Small delay to ensure removal is processed
+
+            }, COOLDOWN_DURATION);
+            // --- End Cooldown Start ---
+
+            const { prompt, historyPrompt } = promptData;
+            addToHistory(historyPrompt);
+            state.lastPrompt = prompt;
+
+            const parts = [{ text: prompt }];
+            for (const slot of DOMElements.imageSlots) {
+                const fileInput = slot.querySelector('.file-input');
+                if (fileInput.files[0]) {
+                    try {
+                        const base64Image = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result.split(',')[1]);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(fileInput.files[0]);
+                        });
+                        parts.push({ inlineData: { mimeType: fileInput.files[0].type, data: base64Image } });
+                    } catch (e) {
+                        showModal(`Failed to read image file from slot #${parseInt(slot.dataset.slot) + 1}.`);
+                        // Reset state if image reading fails
+                        state.isApiCallFinished = true;
+                        if (!state.isCooldownActive) DOMElements.generateBtn.disabled = false; // Re-enable only if cooldown finished
+                        clearTimeout(state.cooldownTimeout);
+                        cooldownBar.classList.remove('active');
+                        cooldownBar.style.transform = 'scaleX(0)';
+                        state.isCooldownActive = false;
+                        return;
+                    }
+                }
+            }
+            
+            // --- Start Visual Feedback ---
+            DOMElements.placeholder.classList.add('hidden');
+            DOMElements.generatedImage.classList.add('hidden');
+            DOMElements.downloadImageLink.classList.add('hidden');
+            DOMElements.loadingSpinner.classList.remove('hidden');
+            startParticleAnimation(); 
+            
+            const payload = {
+                contents: [{ parts }],
+                generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+            };
+
+            try {
+                const response = await fetchWithRetry(IMAGE_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const result = await response.json();
+                const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                
+                if (base64Data) {
+                    const base64WithMetadata = embedPromptInPNG(base64Data, historyPrompt);
+                    const imageUrl = `data:image/png;base64,${base64WithMetadata}`;
+                    DOMElements.generatedImage.src = imageUrl;
+                    DOMElements.generatedImage.classList.remove('hidden');
+                    DOMElements.downloadImageLink.href = imageUrl;
+                    DOMElements.downloadImageLink.download = `gemini_creation_${Date.now()}.png`; 
+                    DOMElements.downloadImageLink.classList.remove('hidden');
+                    state.generationCount++;
+                    DOMElements.generationCounter.textContent = `Creations: ${state.generationCount}`;
+                } else {
+                    showModal("No image data received from the API. Please try a different prompt.");
+                    DOMElements.placeholder.classList.remove('hidden');
+                }
+            } catch (error) {
+                showModal("An error occurred: " + error.message);
+                DOMElements.placeholder.classList.remove('hidden');
+            } finally {
+                // --- End Visual Feedback ---
+                state.isApiCallFinished = true; // Mark API call as finished
+                DOMElements.loadingSpinner.classList.add('hidden');
+                stopParticleAnimation(); // Deactivate particles (make them fall)
+
+                // Only re-enable button if cooldown is *not* active
+                if (!state.isCooldownActive) {
+                    DOMElements.generateBtn.disabled = false;
+                }
+                // The setTimeout callback handles enabling after cooldown
+            }
+        }
+        
+        // --- App Initialization ---
+        function init() {
+            DOMElements.promptBox.value = defaultPrompt;
+            state.lastPrompt = defaultPrompt;
+            state.promptAlbum = { /* Default Album Content */
+                'Custom Figure': `Create a 1/7 scale commercialized figure of the character in the illustration, in a realistic style and environment. Place the figure on a computer desk, using a circular transparent acrylic base without any text. On the computer screen, display the ZBrush modeling process of the figure. Next to the computer screen, place a BANDAI-style toy packaging box printed with the original artwork.`,
+                'Couple Polaroid': `Take a photo taken with a polaroid camera. Keep it looking like a typical photograph with slight blur and consistent lighting, such as a flash in a dark room. Leave the faces unchanged, and replace only the background behind the two people with white curtains featuring a soft sky-blue gradient. [specify desired gestures and expressions-e.g., The boy should be hugging the girl from behind, much taller than her, with her face clearly below his. She should have a soft smile. He is holding her in an embrace.] Keep the faces exactly the same without any changes.`,
+                'Remove Object': `Remove the [describe the object to be removed-e.g., trash can on the left side, distracting sign behind the subject] completely. Fill the empty area with natural background elements that match the surroundings-including consistent lighting, shadows, colors, and textures-so the edit is seamless and invisible. Preserve the rest of the scene and subjects in high-resolution photorealistic quality.`,
+                'Change Perspective': `Change the camera perspective to [e.g., Bird's-eye view / Rear view / Side profile view / Close-up portrait view] while keeping all existing subjects and objects intact. Adjust the angle, depth, and composition so the scene looks natural from this new perspective. Maintain consistent lighting, shadows, colors, and textures for a seamless and photorealistic result. Ensure the final image is high-resolution and detailed, preserving the original photo's quality while reflecting the chosen perspective.`,
+                'Change Background': `Replace the current background with a [describe new scene: e.g., serene sunset beach with gentle waves, warm golden light], while keeping the [subject: e.g., woman in a red dress] exactly as photographed. Maintain the original subject’s pose, clothing details, lighting, and sharpness. Ensure natural color matching, realistic shadows, and seamless edges so the subject blends smoothly into the new environment. Use high-resolution output and preserve a photo-realistic style.`,
+                'Photo Restoration': `Restore this old or damaged photo by removing scratches, dust, stains, tears, and noise, while repairing faded colors and enhancing contrast. Preserve all original subjects, facial features, and details accurately. Maintain a natural, realistic appearance with balanced lighting, textures, and shadows. Output the final image in high-resolution, photorealistic quality, making it look as if it was freshly captured without altering the original scene.`,
+                'Hairstyle Change': `Change the subject's hairstyle to [specify desired hairstyle-e.g., long wavy hair, short bob, curly updo] and optionally adjust hair color to [desired color-e.g.. chestnut brown, platinum blonde] while keeping facial features, expression, and background intact. Ensure the new hairstyle blends naturally with the head shape, lighting, and textures. Maintain all other elements of the image, including clothing and background. Seamless, realistic, and high-resolution result.`,
+                '3x3 Grid Portrait': `Generate a 3x3 grid of portraits of the subject, showing [different facial expressions, angles, clothes, or minor styling variations] in each frame. Each portrait should show a different pose and be placed in a unique setting, with rich, colorful details that highlight the diversity of nature.`,
+                'Cinematic Portrait': `Create a portrait keeping the exact face features, highlighted by intense cinematic lighting and sharp contrast. Captured from a subtle low angle to accentuate the jawline and neck, the image exudes dominance and sculptural grace. The backdrop is a saturated crimson red, contrasting boldly with the model's radiant skin and dark attire.`,
+                'Ghostface': `A dreamy 90s style portrait of a woman on shiny pink satin bedding, holding a large 90s corded phone, thoughtful daydreaming pose. Long wavy hair with gold butterfly clips, delicate gold jewelry and chunky rings, simple glamorous makeup. Girly room with 90s posters, nearby a bowl of popcorn and 90s magazines. Grainy 90s style photo with lamp light in a dimly lit room. A ghostface mask from the movie Scream stands behind the doorway, dimly lit, background slightly dark and ominous, cinematic and nostalgic. The whole scene should be dimly-lit like 90s visuals`
+            };
+            setupModeSwitching();
+            setupEventListeners();
+            updateUIMode(); // Set initial mode
+             // Make sure edit mode starts with perspective selected
+            updateUIEditMode(); 
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
+
